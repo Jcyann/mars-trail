@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mars Trail</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      margin: 0; 
+      background-color: black;
+      color: #00FF00;
+      font-family: monospace;
+    }
+    pre { font-size: 10px; line-height: 1; }
+    button {
+      cursor: pointer;
+      font-family: monospace;
+    }
+    button:hover {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // Game constants
+    const TOTAL_DISTANCE = 2500;
+    const EARTH_EXIT_DISTANCE = 500;
+    const MIN_DISTANCE_PER_TURN = 50;
+    const MAX_DISTANCE_PER_TURN = 150;
+
+    // Earth events
+    const EARTH_EVENTS = [
+      { text: "A billionaire's hyperloop exploded nearby. You took a detour.", type: "neutral" },
+      { text: "The sky turned purple due to corporate cloud seeding. Pretty, but toxic.", type: "neutral" },
+      { text: "Your oxygen subscription expired. Pay 20 Supplies for a 'Breath-Pass'.", type: "bad", suppliesMod: -20 },
+      { text: "Automated police drone mistook your ship for a giant donut. Lose 15 Health.", type: "bad", healthMod: -15 },
+      { text: "You accidentally drove through a 'Zombie-Only' zone. Lose 25 Health.", type: "bad", healthMod: -25 },
+      { text: "Found a cache of 'Pre-Apocalypse' canned beans! Gain 30 Supplies.", type: "good", suppliesMod: 30 },
+      { text: "Hacked a traffic light to stay green forever. Gain 60 Distance!", type: "good", distMod: 60 },
+      { text: "A TikTok influencer tried to use your ship as a backdrop. You ran them over. Gain 5 Health.", type: "good", healthMod: 5 }
+    ];
+
+    // Space events
+    const SPACE_EVENTS = [
+      { text: "Everything is quiet. Too quiet...", type: "neutral" },
+      { text: "Your ship's AI is asking philosophical questions. You unplugged its speaker.", type: "neutral" },
+      { text: "You caught Space Covid. Lose 15 Health.", type: "bad", healthMod: -15 },
+      { text: "A stowaway zombie bit a crew member. Lose 20 Health.", type: "bad", healthMod: -20 },
+      { text: "Your spaceship broke down near Uranus. (Stop giggling). Lose 10 Supplies.", type: "bad", suppliesMod: -10 },
+      { text: "You successfully bypassed an AI uprising firewall. Gain 50 Distance!", type: "good", distMod: 50 },
+      { text: "Found an abandoned Musk satellite. Scavenged 20 Supplies!", type: "good", suppliesMod: 20 },
+      { text: "Micro-meteorite shower! Hull breached. Lose 25 Health and 10 Supplies.", type: "bad", healthMod: -25, suppliesMod: -10 },
+      { text: "You rested well in cryo-sleep. Gain 10 Health.", type: "good", healthMod: 10 }
+    ];
+
+    function Game() {
+      const [gameState, setGameState] = useState("title");
+      const [health, setHealth] = useState(100);
+      const [supplies, setSupplies] = useState(100);
+      const [distance, setDistance] = useState(0);
+      const [day, setDay] = useState(1);
+      const [logs, setLogs] = useState([]);
+      const [gameWon, setGameWon] = useState(false);
+      const bottomRef = useRef(null);
+
+      useEffect(() => {
+        if (bottomRef.current) {
+          bottomRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+      }, [logs]);
+
+      const startGame = () => {
+        setHealth(100);
+        setSupplies(100);
+        setDistance(0);
+        setDay(1);
+        setGameWon(false);
+        setGameState("playing");
+        setLogs([
+          "LOCATION: SEATTLE RUINS, EARTH",
+          "STATUS: F*CKED.",
+          "MISSION: REACH THE MARS COLONY BEFORE THE LAST OXYGEN TANK BLOWS.",
+          "--------------------------------------------------",
+          "TYPE [T] TO TRAVEL OR [R] TO REST."
+        ]);
+      };
+
+      const addLog = (msg) => {
+        setLogs(prev => [...prev, `> ${msg}`]);
+      };
+
+      const checkGameOver = (currentHealth, currentSupplies, currentDistance) => {
+        if (currentDistance >= TOTAL_DISTANCE) {
+          setGameWon(true);
+          setGameState("gameover");
+          addLog("CONGRATULATIONS! YOU REACHED MARS! THE RENT IS HIGHER HERE.");
+          return true;
+        }
+        if (currentHealth <= 0) {
+          setGameState("gameover");
+          addLog("YOU DIED. YOUR ORGANS HAVE BEEN RECYCLED BY THE AI OVERLORDS.");
+          return true;
+        }
+        if (currentSupplies <= 0) {
+          setGameState("gameover");
+          addLog("YOU RAN OUT OF SOYLENT GREEN. YOU STARVED IN THE DARK.");
+          return true;
+        }
+        return false;
+      };
+
+      const handleTravel = () => {
+        if (gameState !== "playing") return;
+
+        let newHealth = health;
+        let newSupplies = supplies - 5;
+        let distTravelled = Math.floor(Math.random() * (MAX_DISTANCE_PER_TURN - MIN_DISTANCE_PER_TURN + 1)) + MIN_DISTANCE_PER_TURN;
+        let newDistance = distance + distTravelled;
+
+        if (distance < EARTH_EXIT_DISTANCE && newDistance >= EARTH_EXIT_DISTANCE) {
+          addLog("!!! ATMOSPHERE BREACHED !!! YOU ARE NOW IN THE COLD VACUUM OF SPACE.");
+        }
+
+        addLog(`Day ${day}: Traveled ${distTravelled} space-miles.`);
+
+        if (Math.random() < 0.4) {
+          const pool = distance < EARTH_EXIT_DISTANCE ? EARTH_EVENTS : SPACE_EVENTS;
+          const event = pool[Math.floor(Math.random() * pool.length)];
+          addLog(`EVENT: ${event.text}`);
+          if (event.healthMod) newHealth += event.healthMod;
+          if (event.suppliesMod) newSupplies += event.suppliesMod;
+          if (event.distMod) newDistance += event.distMod;
+        }
+
+        setHealth(newHealth);
+        setSupplies(newSupplies);
+        setDistance(newDistance);
+        setDay(day + 1);
+        checkGameOver(newHealth, newSupplies, newDistance);
+      };
+
+      const handleRest = () => {
+        if (gameState !== "playing") return;
+
+        let newHealth = Math.min(health + 15, 100);
+        let newSupplies = supplies - 10;
+
+        addLog(`Day ${day}: You hid in a dumpster (Earth) or cryo-pod (Space). Health up, Supplies down.`);
+
+        setHealth(newHealth);
+        setSupplies(newSupplies);
+        setDay(day + 1);
+        checkGameOver(newHealth, newSupplies, distance);
+      };
+
+      // Title Screen
+      if (gameState === "title") {
+        return (
+          <div style={{ backgroundColor: "black", color: "#00FF00", fontFamily: "monospace", minHeight: "100vh", padding: "20px" }}>
+            <pre style={{ fontSize: "10px", lineHeight: "1" }}>
+{`
+ . . . . . . . . . . . . _________ ___ __________ _________
+/ / / / / / / ___/ / / ______/ / / / / / / / /__/ / / /____
+/ / / / / / / /__/ / / /____ / / / / / / / __ _/ / ____ /
+/ / / / / / / / \\ \\ / /____/ / \\________/ \\__/ \\__/ \\__\\\\_________/
+
+ _______ ______ _________ _________ ___ /__ __/ / __ \\/ / / / / __ __/ / /
+/ / / / / / / /__/ / / /____ / / / / / /_/ / / / / /____ / / / / / __ / / /
+/ / / / / / / __ / / / ____ / / / / / / / / / / / / / / /____ / /____ /_/
+/__/ /__/ /__/\\\\________/ \\________/ \\_______/
+`}
+            </pre>
+            <div style={{ textAlign: "center", marginTop: "20px" }}>
+              <h1 style={{ fontSize: "48px", margin: "0" }}>🚀</h1>
+              <h2 style={{ fontSize: "36px" }}>MARS TRAIL</h2>
+              <p style={{ fontSize: "18px" }}>EARTH IS F*CKED. YOU ARE LEAVING FOR MARS.</p>
+              <button 
+                onClick={startGame}
+                style={{
+                  backgroundColor: "#00FF00",
+                  color: "black",
+                  border: "none",
+                  padding: "15px 40px",
+                  fontSize: "24px",
+                  marginTop: "20px"
+                }}
+              >
+                [START GAME]
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // Game Over Screen
+      if (gameState === "gameover") {
+        return (
+          <div style={{ backgroundColor: "black", color: gameWon ? "#00FF00" : "#FF0000", fontFamily: "monospace", minHeight: "100vh", padding: "20px" }}>
+            <h1 style={{ fontSize: "48px", textAlign: "center" }}>
+              {gameWon ? "🎉 YOU WON!" : "💀 GAME OVER"}
+            </h1>
+            <div style={{ fontSize: "18px", marginTop: "20px" }}>
+              {logs.slice(-5).map((log, i) => (
+                <p key={i}>{log}</p>
+              ))}
+            </div>
+            <div style={{ textAlign: "center", marginTop: "40px" }}>
+              <button 
+                onClick={startGame}
+                style={{
+                  backgroundColor: gameWon ? "#00FF00" : "#FF0000",
+                  color: "black",
+                  border: "none",
+                  padding: "15px 40px",
+                  fontSize: "24px"
+                }}
+              >
+                [PLAY AGAIN]
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // Playing Screen
+      return (
+        <div style={{ backgroundColor: "black", color: "#00FF00", fontFamily: "monospace", minHeight: "100vh", padding: "20px" }}>
+          <div style={{ borderBottom: "2px solid #00FF00", paddingBottom: "10px", marginBottom: "20px", fontSize: "20px" }}>
+            <span style={{ marginRight: "20px" }}>HEALTH: {health}%</span>
+            <span style={{ marginRight: "20px" }}>SUPPLIES: {supplies}</span>
+            <span style={{ marginRight: "20px" }}>DISTANCE: {distance}/{TOTAL_DISTANCE}</span>
+            <span>DAY: {day}</span>
+          </div>
+
+          <div style={{ marginBottom: "20px", fontSize: "16px" }}>
+            {logs.map((log, i) => (
+              <p key={i} style={{ margin: "5px 0" }}>{log}</p>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+
+          <div style={{ display: "flex", gap: "20px", justifyContent: "center" }}>
+            <button 
+              onClick={handleTravel}
+              style={{
+                backgroundColor: "transparent",
+                color: "#00FF00",
+                border: "2px solid #00FF00",
+                padding: "15px 30px",
+                fontSize: "20px"
+              }}
+            >
+              [T]RAVEL
+            </button>
+            <button 
+              onClick={handleRest}
+              style={{
+                backgroundColor: "transparent",
+                color: "#00FF00",
+                border: "2px solid #00FF00",
+                padding: "15px 30px",
+                fontSize: "20px"
+              }}
+            >
+              [R]EST
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<Game />);
+  </script>
+</body>
+</html>
